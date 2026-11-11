@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { fetchUserCourses } from '../lib/courses.js'
-import { createUserTask, fetchUserTasks } from '../lib/tasks.js'
+import { createUserTask, deleteUserTask, fetchUserTasks, updateUserTask } from '../lib/tasks.js'
 
 function priorityLabel(priority) {
   if (priority === 'high') {
@@ -17,16 +17,22 @@ function TasksPanel({ userId }) {
   const [tasks, setTasks] = useState([])
   const [loadState, setLoadState] = useState('loading')
   const [loadError, setLoadError] = useState('')
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [formMode, setFormMode] = useState(null)
   const [title, setTitle] = useState('')
   const [courseId, setCourseId] = useState('')
   const [priority, setPriority] = useState('normal')
+  const [editingTask, setEditingTask] = useState(null)
+  const [taskToDelete, setTaskToDelete] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [formError, setFormError] = useState('')
+  const [deleteError, setDeleteError] = useState('')
   const [canRetryRequest, setCanRetryRequest] = useState(false)
+  const [canRetryDelete, setCanRetryDelete] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const taskSnapshotIdsRef = useRef([])
   const pendingTaskRef = useRef({ title: '', courseId: '', priority: 'normal' })
+  const userCourseIds = courses.map((course) => course.id)
 
   async function loadTasks() {
     setLoadState('loading')
@@ -64,21 +70,48 @@ function TasksPanel({ userId }) {
   }, [userId])
 
   function openCreateModal() {
+    setEditingTask(null)
     setTitle('')
     setPriority('normal')
     setFormError('')
     setCanRetryRequest(false)
     setCourseId((current) => current || courses[0]?.id || '')
-    setIsModalOpen(true)
+    setFormMode('create')
   }
 
-  function closeCreateModal() {
+  function openEditModal(task) {
+    setEditingTask(task)
+    setTitle(task.title)
+    setCourseId(task.course_id)
+    setPriority(task.priority === 'high' ? 'high' : 'normal')
+    setFormError('')
+    setCanRetryRequest(false)
+    setFormMode('edit')
+  }
+
+  function closeFormModal() {
     if (isSaving) {
       return
     }
-    setIsModalOpen(false)
+    setFormMode(null)
+    setEditingTask(null)
     setFormError('')
     setCanRetryRequest(false)
+  }
+
+  function openDeleteModal(task) {
+    setTaskToDelete(task)
+    setDeleteError('')
+    setCanRetryDelete(false)
+  }
+
+  function closeDeleteModal() {
+    if (isDeleting) {
+      return
+    }
+    setTaskToDelete(null)
+    setDeleteError('')
+    setCanRetryDelete(false)
   }
 
   async function persistTask({ isRetry }) {
@@ -164,7 +197,7 @@ function TasksPanel({ userId }) {
 
     if (saved) {
       setSuccessMessage('Užduotis sėkmingai sukurta')
-      setIsModalOpen(false)
+      setFormMode(null)
       setTitle('')
     }
 
@@ -183,11 +216,149 @@ function TasksPanel({ userId }) {
 
     if (saved) {
       setSuccessMessage('Užduotis sėkmingai sukurta')
-      setIsModalOpen(false)
+      setFormMode(null)
       setTitle('')
     }
 
     setIsSaving(false)
+  }
+
+  async function persistUpdatedTask() {
+    const pending = pendingTaskRef.current
+
+    try {
+      const { data, error } = await updateUserTask({
+        taskId: pending.taskId,
+        title: pending.title,
+        courseId: pending.courseId,
+        priority: pending.priority,
+        currentCourseId: pending.currentCourseId,
+        userCourseIds,
+      })
+
+      if (error || !data) {
+        setFormError('Nepavyko atnaujinti užduoties. Bandykite dar kartą.')
+        setCanRetryRequest(true)
+        return false
+      }
+
+      setTasks((current) => current.map((task) => (task.id === data.id ? data : task)))
+      setLoadState('success')
+      return true
+    } catch {
+      setFormError('Nepavyko atnaujinti užduoties. Bandykite dar kartą.')
+      setCanRetryRequest(true)
+      return false
+    }
+  }
+
+  async function handleUpdateTask(event) {
+    event.preventDefault()
+    const trimmedTitle = title.trim()
+
+    if (!trimmedTitle) {
+      setFormError('Įveskite užduoties pavadinimą.')
+      setCanRetryRequest(false)
+      return
+    }
+
+    if (!courseId) {
+      setFormError('Pasirinkite studijų dalyką.')
+      setCanRetryRequest(false)
+      return
+    }
+
+    if (priority !== 'high' && priority !== 'normal') {
+      setFormError('Pasirinkite prioritetą.')
+      setCanRetryRequest(false)
+      return
+    }
+
+    pendingTaskRef.current = {
+      taskId: editingTask.id,
+      title: trimmedTitle,
+      courseId,
+      priority,
+      currentCourseId: editingTask.course_id,
+    }
+    setIsSaving(true)
+    setFormError('')
+    setCanRetryRequest(false)
+    setSuccessMessage('')
+
+    const saved = await persistUpdatedTask()
+
+    if (saved) {
+      setSuccessMessage('Užduotis sėkmingai atnaujinta')
+      setFormMode(null)
+      setEditingTask(null)
+    }
+
+    setIsSaving(false)
+  }
+
+  async function retryUpdateTask() {
+    if (!pendingTaskRef.current.taskId || isSaving) {
+      return
+    }
+
+    setIsSaving(true)
+    setFormError('')
+
+    const saved = await persistUpdatedTask()
+
+    if (saved) {
+      setSuccessMessage('Užduotis sėkmingai atnaujinta')
+      setFormMode(null)
+      setEditingTask(null)
+    }
+
+    setIsSaving(false)
+  }
+
+  async function persistDeletedTask() {
+    const task = taskToDelete
+    if (!task) {
+      return false
+    }
+
+    try {
+      const { data, error } = await deleteUserTask({
+        taskId: task.id,
+        currentCourseId: task.course_id,
+        userCourseIds,
+      })
+
+      if (error || !data) {
+        setDeleteError('Nepavyko ištrinti užduoties. Bandykite dar kartą.')
+        setCanRetryDelete(true)
+        return false
+      }
+
+      setTasks((current) => current.filter((item) => item.id !== task.id))
+      setLoadState('success')
+      return true
+    } catch {
+      setDeleteError('Nepavyko ištrinti užduoties. Bandykite dar kartą.')
+      setCanRetryDelete(true)
+      return false
+    }
+  }
+
+  async function handleDeleteTask() {
+    setIsDeleting(true)
+    setDeleteError('')
+    setCanRetryDelete(false)
+    setSuccessMessage('')
+
+    const deleted = await persistDeletedTask()
+
+    if (deleted) {
+      setSuccessMessage('Užduotis sėkmingai ištrinta')
+      setTaskToDelete(null)
+    }
+
+    setIsDeleting(false)
   }
 
   const canCreateTask = courses.length > 0
@@ -258,6 +429,14 @@ function TasksPanel({ userId }) {
                 <div>
                   <h3>{task.title}</h3>
                   <p>{task.courses?.name || 'Nepriskirtas dalykas'}</p>
+                  <div className="dashboard-task-actions">
+                    <button type="button" onClick={() => openEditModal(task)}>
+                      Redaguoti
+                    </button>
+                    <button type="button" onClick={() => openDeleteModal(task)}>
+                      Ištrinti
+                    </button>
+                  </div>
                 </div>
                 <span className={`dashboard-priority dashboard-priority--${task.priority}`}>
                   {priorityLabel(task.priority)}
@@ -268,16 +447,19 @@ function TasksPanel({ userId }) {
         ) : null}
       </section>
 
-      {isModalOpen ? (
+      {formMode ? (
         <div className="dashboard-modal-wrap">
           <button
             type="button"
             className="dashboard-backdrop"
             aria-label="Uždaryti langą"
-            onClick={closeCreateModal}
+            onClick={closeFormModal}
           />
-          <form className="dashboard-modal" onSubmit={handleCreateTask}>
-            <h2>Nauja užduotis</h2>
+          <form
+            className="dashboard-modal"
+            onSubmit={formMode === 'edit' ? handleUpdateTask : handleCreateTask}
+          >
+            <h2>{formMode === 'edit' ? 'Redaguoti užduotį' : 'Nauja užduotis'}</h2>
 
             <label htmlFor="task-title">Užduoties pavadinimas</label>
             <input
@@ -329,7 +511,7 @@ function TasksPanel({ userId }) {
                   <button
                     type="button"
                     className="dashboard-retry"
-                    onClick={retryCreateTask}
+                    onClick={formMode === 'edit' ? retryUpdateTask : retryCreateTask}
                     disabled={isSaving}
                   >
                     Bandyti dar kartą
@@ -339,14 +521,59 @@ function TasksPanel({ userId }) {
             ) : null}
 
             <div className="dashboard-modal-actions">
-              <button type="button" className="dashboard-cancel" onClick={closeCreateModal} disabled={isSaving}>
+              <button type="button" className="dashboard-cancel" onClick={closeFormModal} disabled={isSaving}>
                 Atšaukti
               </button>
               <button type="submit" className="dashboard-add" disabled={isSaving}>
-                {isSaving ? 'Saugoma...' : 'Pridėti užduotį'}
+                {isSaving ? 'Saugoma...' : formMode === 'edit' ? 'Išsaugoti' : 'Pridėti užduotį'}
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {taskToDelete ? (
+        <div className="dashboard-modal-wrap">
+          <button
+            type="button"
+            className="dashboard-backdrop"
+            aria-label="Uždaryti langą"
+            onClick={closeDeleteModal}
+          />
+          <div className="dashboard-modal">
+            <h2>Ištrinti užduotį?</h2>
+            <p className="dashboard-delete-text">
+              Ar tikrai norite ištrinti užduotį „{taskToDelete.title}“? Šio veiksmo atšaukti negalima.
+            </p>
+            {deleteError ? (
+              <div className="dashboard-form-error" role="alert">
+                <p>{deleteError}</p>
+                {canRetryDelete ? (
+                  <button
+                    type="button"
+                    className="dashboard-retry"
+                    onClick={handleDeleteTask}
+                    disabled={isDeleting}
+                  >
+                    Bandyti dar kartą
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="dashboard-modal-actions">
+              <button type="button" className="dashboard-cancel" onClick={closeDeleteModal} disabled={isDeleting}>
+                Atšaukti
+              </button>
+              <button
+                type="button"
+                className="dashboard-add dashboard-add--danger"
+                onClick={handleDeleteTask}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Trinama...' : 'Ištrinti'}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </>

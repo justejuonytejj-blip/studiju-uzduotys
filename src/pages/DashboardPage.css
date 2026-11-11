@@ -510,6 +510,39 @@
   font-size: 0.92rem;
 }
 
+.dashboard-task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.dashboard-task-actions button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--dash-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e9dfff;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.dashboard-task-actions button:hover {
+  border-color: rgba(192, 132, 252, 0.55);
+}
+
+.dashboard-delete-text {
+  margin: 0 0 18px;
+  color: var(--dash-muted);
+}
+
+.dashboard-add--danger {
+  background: linear-gradient(90deg, #f472b6, #db2777);
+  box-shadow: 0 10px 24px rgba(219, 39, 119, 0.28);
+}
+
 .dashboard-priority {
   flex-shrink: 0;
   padding: 6px 12px;
