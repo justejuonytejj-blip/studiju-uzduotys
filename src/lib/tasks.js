@@ -21,3 +21,50 @@ export async function createUserTask({ title, courseId, priority }) {
     .select(TASK_COLUMNS)
     .single()
 }
+
+function belongsToUserCourses(courseId, userCourseIds) {
+  return Array.isArray(userCourseIds) && userCourseIds.includes(courseId)
+}
+
+export async function updateUserTask({
+  taskId,
+  title,
+  courseId,
+  priority,
+  currentCourseId,
+  userCourseIds,
+}) {
+  if (!belongsToUserCourses(currentCourseId, userCourseIds)) {
+    return { data: null, error: { message: 'Užduotis nepriklauso šiam vartotojui.' } }
+  }
+
+  if (!belongsToUserCourses(courseId, userCourseIds)) {
+    return { data: null, error: { message: 'Pasirinktas dalykas nepriklauso šiam vartotojui.' } }
+  }
+
+  return supabase
+    .from('tasks')
+    .update({
+      title,
+      course_id: courseId,
+      priority,
+    })
+    .eq('id', taskId)
+    .in('course_id', userCourseIds)
+    .select(TASK_COLUMNS)
+    .single()
+}
+
+export async function deleteUserTask({ taskId, currentCourseId, userCourseIds }) {
+  if (!belongsToUserCourses(currentCourseId, userCourseIds)) {
+    return { data: null, error: { message: 'Užduotis nepriklauso šiam vartotojui.' } }
+  }
+
+  return supabase
+    .from('tasks')
+    .delete()
+    .eq('id', taskId)
+    .in('course_id', userCourseIds)
+    .select('id')
+    .single()
+}
