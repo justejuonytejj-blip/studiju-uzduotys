@@ -27,18 +27,11 @@ function LoginPage({ onGoToRegister }) {
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [canRetry, setCanRetry] = useState(false)
 
-  async function handleSubmit(event) {
-    event.preventDefault()
+  async function submitLogin() {
     setErrorMessage('')
-
-    const validationError = validateLogin({ email, password })
-
-    if (validationError) {
-      setErrorMessage(validationError)
-      return
-    }
-
+    setCanRetry(false)
     setIsSubmitting(true)
 
     try {
@@ -46,17 +39,34 @@ function LoginPage({ onGoToRegister }) {
 
       if (error) {
         setErrorMessage(getSignInErrorMessage(error))
+        setCanRetry(true)
         return
       }
 
       if (!data?.session) {
         setErrorMessage('Nepavyko prisijungti. Bandykite dar kartą.')
+        setCanRetry(true)
       }
     } catch {
       setErrorMessage('Nepavyko prisijungti prie serverio. Bandykite dar kartą.')
+      setCanRetry(true)
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+
+    const validationError = validateLogin({ email, password })
+
+    if (validationError) {
+      setErrorMessage(validationError)
+      setCanRetry(false)
+      return
+    }
+
+    await submitLogin()
   }
 
   return (
@@ -94,9 +104,19 @@ function LoginPage({ onGoToRegister }) {
           />
 
           {errorMessage ? (
-            <p className="register-message register-message--error" role="alert">
-              {errorMessage}
-            </p>
+            <div className="register-message register-message--error" role="alert">
+              <p>{errorMessage}</p>
+              {canRetry ? (
+                <button
+                  type="button"
+                  className="register-retry"
+                  onClick={submitLogin}
+                  disabled={isSubmitting}
+                >
+                  Bandyti dar kartą
+                </button>
+              ) : null}
+            </div>
           ) : null}
 
           <button type="submit" disabled={isSubmitting}>

@@ -102,6 +102,28 @@
   color: var(--error);
 }
 
+.register-message p {
+  margin: 0;
+}
+
+.register-retry {
+  margin-top: 10px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.register-retry:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .register-message--success {
   background: var(--success-bg);
   color: var(--success);

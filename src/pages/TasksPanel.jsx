@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { fetchUserCourses } from '../lib/courses.js'
 import { createUserTask, fetchUserTasks } from '../lib/tasks.js'
 
@@ -23,6 +23,10 @@ function TasksPanel({ userId }) {
   const [priority, setPriority] = useState('normal')
   const [isSaving, setIsSaving] = useState(false)
   const [formError, setFormError] = useState('')
+  const [canRetryRequest, setCanRetryRequest] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
+  const taskSnapshotIdsRef = useRef([])
+  const pendingTaskRef = useRef({ title: '', courseId: '', priority: 'normal' })
 
   async function loadTasks() {
     setLoadState('loading')
@@ -63,6 +67,7 @@ function TasksPanel({ userId }) {
     setTitle('')
     setPriority('normal')
     setFormError('')
+    setCanRetryRequest(false)
     setCourseId((current) => current || courses[0]?.id || '')
     setIsModalOpen(true)
   }
@@ -73,6 +78,53 @@ function TasksPanel({ userId }) {
     }
     setIsModalOpen(false)
     setFormError('')
+    setCanRetryRequest(false)
+  }
+
+  async function persistTask({ isRetry }) {
+    const pending = pendingTaskRef.current
+
+    try {
+      if (isRetry) {
+        const latest = await fetchUserTasks(userId)
+        if (latest.error) {
+          setFormError('Nepavyko patikrinti, ar užduotis jau sukurta. Bandykite dar kartą.')
+          setCanRetryRequest(true)
+          return false
+        }
+
+        const alreadyCreated = (latest.data ?? []).find(
+          (task) =>
+            task.title.trim() === pending.title &&
+            task.course_id === pending.courseId &&
+            !taskSnapshotIdsRef.current.includes(task.id),
+        )
+
+        if (alreadyCreated) {
+          setTasks(latest.data ?? [])
+          setLoadState('success')
+          return true
+        }
+      }
+
+      const { data, error } = await createUserTask(pending)
+
+      if (error || !data) {
+        setFormError('Nepavyko išsaugoti užduoties. Bandykite dar kartą.')
+        setCanRetryRequest(true)
+        return false
+      }
+
+      setTasks((current) =>
+        current.some((task) => task.id === data.id) ? current : [data, ...current],
+      )
+      setLoadState('success')
+      return true
+    } catch {
+      setFormError('Nepavyko išsaugoti užduoties. Bandykite dar kartą.')
+      setCanRetryRequest(true)
+      return false
+    }
   }
 
   async function handleCreateTask(event) {
@@ -81,39 +133,61 @@ function TasksPanel({ userId }) {
 
     if (!trimmedTitle) {
       setFormError('Įveskite užduoties pavadinimą.')
+      setCanRetryRequest(false)
       return
     }
 
     if (!courseId) {
       setFormError('Pasirinkite studijų dalyką.')
+      setCanRetryRequest(false)
       return
     }
 
     if (priority !== 'high' && priority !== 'normal') {
       setFormError('Pasirinkite prioritetą.')
+      setCanRetryRequest(false)
+      return
+    }
+
+    pendingTaskRef.current = {
+      title: trimmedTitle,
+      courseId,
+      priority,
+    }
+    taskSnapshotIdsRef.current = tasks.map((task) => task.id)
+    setIsSaving(true)
+    setFormError('')
+    setCanRetryRequest(false)
+    setSuccessMessage('')
+
+    const saved = await persistTask({ isRetry: false })
+
+    if (saved) {
+      setSuccessMessage('Užduotis sėkmingai sukurta')
+      setIsModalOpen(false)
+      setTitle('')
+    }
+
+    setIsSaving(false)
+  }
+
+  async function retryCreateTask() {
+    if (!pendingTaskRef.current.title || isSaving) {
       return
     }
 
     setIsSaving(true)
     setFormError('')
 
-    const { data, error } = await createUserTask({
-      title: trimmedTitle,
-      courseId,
-      priority,
-    })
+    const saved = await persistTask({ isRetry: true })
 
-    if (error || !data) {
-      setFormError('Nepavyko išsaugoti užduoties. Bandykite dar kartą.')
-      setIsSaving(false)
-      return
+    if (saved) {
+      setSuccessMessage('Užduotis sėkmingai sukurta')
+      setIsModalOpen(false)
+      setTitle('')
     }
 
-    setTasks((current) => [data, ...current])
-    setLoadState('success')
     setIsSaving(false)
-    setIsModalOpen(false)
-    setTitle('')
   }
 
   const canCreateTask = courses.length > 0
@@ -124,6 +198,12 @@ function TasksPanel({ userId }) {
         <h1>Užduotys</h1>
         <p>Priskirk užduotis studijų dalykams ir pažymėk jų prioritetą.</p>
       </section>
+
+      {successMessage ? (
+        <p className="dashboard-banner dashboard-banner--success" role="status">
+          {successMessage}
+        </p>
+      ) : null}
 
       <section className="dashboard-section" aria-labelledby="tasks-heading">
         <div className="dashboard-section-head">
@@ -204,7 +284,12 @@ function TasksPanel({ userId }) {
               id="task-title"
               name="title"
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => {
+                setTitle(event.target.value)
+                if (formError && !canRetryRequest) {
+                  setFormError('')
+                }
+              }}
               disabled={isSaving}
               autoFocus
               placeholder="Pvz. Paruošti laboratorinį darbą"
@@ -238,9 +323,19 @@ function TasksPanel({ userId }) {
             </select>
 
             {formError ? (
-              <p className="dashboard-form-error" role="alert">
-                {formError}
-              </p>
+              <div className="dashboard-form-error" role="alert">
+                <p>{formError}</p>
+                {canRetryRequest ? (
+                  <button
+                    type="button"
+                    className="dashboard-retry"
+                    onClick={retryCreateTask}
+                    disabled={isSaving}
+                  >
+                    Bandyti dar kartą
+                  </button>
+                ) : null}
+              </div>
             ) : null}
 
             <div className="dashboard-modal-actions">
