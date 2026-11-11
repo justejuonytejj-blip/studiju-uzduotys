@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { signOut } from '../lib/auth.js'
 import { createUserCourse, fetchUserCourses } from '../lib/courses.js'
+import TasksPanel from './TasksPanel.jsx'
 import './DashboardPage.css'
 
 const COURSE_VARIANTS = ['violet', 'blue', 'rose', 'teal']
@@ -30,6 +31,7 @@ function DashboardPage({ session }) {
   const [formError, setFormError] = useState('')
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState('')
+  const [activeView, setActiveView] = useState('courses')
 
   async function loadCourses() {
     setLoadState('loading')
@@ -155,7 +157,14 @@ function DashboardPage({ session }) {
         </div>
 
         <nav className="dashboard-nav" aria-label="Pagrindinė navigacija">
-          <a className="dashboard-nav-item is-active" href="#mano-dalykai">
+          <button
+            type="button"
+            className={`dashboard-nav-item${activeView === 'courses' ? ' is-active' : ''}`}
+            onClick={() => {
+              setActiveView('courses')
+              setIsMenuOpen(false)
+            }}
+          >
             <span className="dashboard-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
                 <rect x="3" y="3" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.6" />
@@ -165,16 +174,22 @@ function DashboardPage({ session }) {
               </svg>
             </span>
             Mano dalykai
-          </a>
-          <span className="dashboard-nav-item is-soon" title="Netrukus">
+          </button>
+          <button
+            type="button"
+            className={`dashboard-nav-item${activeView === 'tasks' ? ' is-active' : ''}`}
+            onClick={() => {
+              setActiveView('tasks')
+              setIsMenuOpen(false)
+            }}
+          >
             <span className="dashboard-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
                 <path d="M5 6h14M5 12h14M5 18h9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               </svg>
             </span>
             Užduotys
-            <span className="dashboard-soon">Netrukus</span>
-          </span>
+          </button>
         </nav>
       </aside>
 
@@ -209,6 +224,10 @@ function DashboardPage({ session }) {
           </p>
         ) : null}
 
+        {activeView === 'tasks' ? <TasksPanel userId={user.id} /> : null}
+
+        {activeView === 'courses' ? (
+          <>
         <section className="dashboard-hero" id="mano-dalykai">
           <h1>Labas! 👋</h1>
           <p>Tvarkyk savo studijų dalykus ir užduotis vienoje vietoje.</p>
@@ -269,9 +288,11 @@ function DashboardPage({ session }) {
             </ul>
           ) : null}
         </section>
+          </>
+        ) : null}
       </div>
 
-      {isModalOpen ? (
+      {activeView === 'courses' && isModalOpen ? (
         <div className="dashboard-modal-wrap">
           <button
             type="button"
