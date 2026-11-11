@@ -32,7 +32,11 @@ function App() {
   }, [])
 
   if (!isReady) {
-    return null
+    return (
+      <main className="session-check" aria-live="polite">
+        <p>Tikrinama sesija...</p>
+      </main>
+    )
   }
 
   if (session) {

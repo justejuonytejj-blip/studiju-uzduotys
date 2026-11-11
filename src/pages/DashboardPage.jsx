@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { signOut } from '../lib/auth.js'
 import { createUserCourse, fetchUserCourses } from '../lib/courses.js'
 import TasksPanel from './TasksPanel.jsx'
@@ -29,9 +29,13 @@ function DashboardPage({ session }) {
   const [courseName, setCourseName] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [formError, setFormError] = useState('')
+  const [canRetryRequest, setCanRetryRequest] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [activeView, setActiveView] = useState('courses')
+  const courseSnapshotIdsRef = useRef([])
+  const pendingCourseNameRef = useRef('')
 
   async function loadCourses() {
     setLoadState('loading')
@@ -56,7 +60,52 @@ function DashboardPage({ session }) {
   function openCreateModal() {
     setCourseName('')
     setFormError('')
+    setCanRetryRequest(false)
     setIsModalOpen(true)
+  }
+
+  async function persistCourse({ isRetry }) {
+    const name = pendingCourseNameRef.current
+
+    try {
+      if (isRetry) {
+        const latest = await fetchUserCourses(user.id)
+        if (latest.error) {
+          setFormError('Nepavyko patikrinti, ar dalykas jau sukurtas. Bandykite dar kartą.')
+          setCanRetryRequest(true)
+          return false
+        }
+
+        const alreadyCreated = (latest.data ?? []).find(
+          (course) =>
+            course.name.trim() === name && !courseSnapshotIdsRef.current.includes(course.id),
+        )
+
+        if (alreadyCreated) {
+          setCourses(latest.data ?? [])
+          setLoadState('success')
+          return true
+        }
+      }
+
+      const { data, error } = await createUserCourse(user.id, name)
+
+      if (error || !data) {
+        setFormError('Nepavyko išsaugoti dalyko. Bandykite dar kartą.')
+        setCanRetryRequest(true)
+        return false
+      }
+
+      setCourses((current) =>
+        current.some((course) => course.id === data.id) ? current : [...current, data],
+      )
+      setLoadState('success')
+      return true
+    } catch {
+      setFormError('Nepavyko išsaugoti dalyko. Bandykite dar kartą.')
+      setCanRetryRequest(true)
+      return false
+    }
   }
 
   function closeCreateModal() {
@@ -66,6 +115,7 @@ function DashboardPage({ session }) {
     setIsModalOpen(false)
     setCourseName('')
     setFormError('')
+    setCanRetryRequest(false)
   }
 
   async function handleCreateCourse(event) {
@@ -74,25 +124,45 @@ function DashboardPage({ session }) {
 
     if (!name) {
       setFormError('Įveskite dalyko pavadinimą.')
+      setCanRetryRequest(false)
+      return
+    }
+
+    pendingCourseNameRef.current = name
+    courseSnapshotIdsRef.current = courses.map((course) => course.id)
+    setIsSaving(true)
+    setFormError('')
+    setCanRetryRequest(false)
+    setSuccessMessage('')
+
+    const saved = await persistCourse({ isRetry: false })
+
+    if (saved) {
+      setSuccessMessage('Dalykas sėkmingai sukurtas')
+      setIsModalOpen(false)
+      setCourseName('')
+    }
+
+    setIsSaving(false)
+  }
+
+  async function retryCreateCourse() {
+    if (!pendingCourseNameRef.current || isSaving) {
       return
     }
 
     setIsSaving(true)
     setFormError('')
 
-    const { data, error } = await createUserCourse(user.id, name)
+    const saved = await persistCourse({ isRetry: true })
 
-    if (error || !data) {
-      setFormError('Nepavyko išsaugoti dalyko. Bandykite dar kartą.')
-      setIsSaving(false)
-      return
+    if (saved) {
+      setSuccessMessage('Dalykas sėkmingai sukurtas')
+      setIsModalOpen(false)
+      setCourseName('')
     }
 
-    setCourses((current) => [...current, data])
-    setLoadState('success')
     setIsSaving(false)
-    setIsModalOpen(false)
-    setCourseName('')
   }
 
   async function handleSignOut() {
@@ -219,8 +289,17 @@ function DashboardPage({ session }) {
         </header>
 
         {signOutError ? (
-          <p className="dashboard-banner dashboard-banner--error" role="alert">
-            {signOutError}
+          <div className="dashboard-banner dashboard-banner--error" role="alert">
+            <p>{signOutError}</p>
+            <button type="button" className="dashboard-retry" onClick={handleSignOut} disabled={isSigningOut}>
+              Bandyti dar kartą
+            </button>
+          </div>
+        ) : null}
+
+        {activeView === 'courses' && successMessage ? (
+          <p className="dashboard-banner dashboard-banner--success" role="status">
+            {successMessage}
           </p>
         ) : null}
 
@@ -307,15 +386,30 @@ function DashboardPage({ session }) {
               id="course-name"
               name="courseName"
               value={courseName}
-              onChange={(event) => setCourseName(event.target.value)}
+              onChange={(event) => {
+                setCourseName(event.target.value)
+                if (formError && !canRetryRequest) {
+                  setFormError('')
+                }
+              }}
               disabled={isSaving}
               autoFocus
               placeholder="Pvz. Programavimo pagrindai"
             />
             {formError ? (
-              <p className="dashboard-form-error" role="alert">
-                {formError}
-              </p>
+              <div className="dashboard-form-error" role="alert">
+                <p>{formError}</p>
+                {canRetryRequest ? (
+                  <button
+                    type="button"
+                    className="dashboard-retry"
+                    onClick={retryCreateCourse}
+                    disabled={isSaving}
+                  >
+                    Bandyti dar kartą
+                  </button>
+                ) : null}
+              </div>
             ) : null}
             <div className="dashboard-modal-actions">
               <button type="button" className="dashboard-cancel" onClick={closeCreateModal} disabled={isSaving}>

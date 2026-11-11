@@ -37,3 +37,18 @@ body {
 #root {
   min-height: 100svh;
 }
+
+.session-check {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+}
+
+.session-check p {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--muted);
+}
