@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase.js'
+import DashboardPage from './pages/DashboardPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
-import WelcomePage from './pages/WelcomePage.jsx'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -36,7 +36,7 @@ function App() {
   }
 
   if (session) {
-    return <WelcomePage email={session.user.email} />
+    return <DashboardPage session={session} />
   }
 
   if (authView === 'login') {
