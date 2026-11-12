@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { signOut } from '../lib/auth.js'
-import { createUserCourse, fetchUserCourses } from '../lib/courses.js'
+import {
+  countTasksForCourse,
+  createUserCourse,
+  deleteUserCourse,
+  fetchUserCourses,
+  updateUserCourse,
+} from '../lib/courses.js'
 import TasksPanel from './TasksPanel.jsx'
 import './DashboardPage.css'
 
@@ -25,11 +31,16 @@ function DashboardPage({ session }) {
   const [loadError, setLoadError] = useState('')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [formMode, setFormMode] = useState(null)
   const [courseName, setCourseName] = useState('')
+  const [editingCourse, setEditingCourse] = useState(null)
+  const [courseToDelete, setCourseToDelete] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [formError, setFormError] = useState('')
+  const [deleteError, setDeleteError] = useState('')
   const [canRetryRequest, setCanRetryRequest] = useState(false)
+  const [canRetryDelete, setCanRetryDelete] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -58,10 +69,44 @@ function DashboardPage({ session }) {
   }, [user.id])
 
   function openCreateModal() {
+    setEditingCourse(null)
     setCourseName('')
     setFormError('')
     setCanRetryRequest(false)
-    setIsModalOpen(true)
+    setFormMode('create')
+  }
+
+  function openEditModal(course) {
+    setEditingCourse(course)
+    setCourseName(course.name)
+    setFormError('')
+    setCanRetryRequest(false)
+    setFormMode('edit')
+  }
+
+  function closeFormModal() {
+    if (isSaving) {
+      return
+    }
+    setFormMode(null)
+    setEditingCourse(null)
+    setFormError('')
+    setCanRetryRequest(false)
+  }
+
+  function openDeleteModal(course) {
+    setCourseToDelete(course)
+    setDeleteError('')
+    setCanRetryDelete(false)
+  }
+
+  function closeDeleteModal() {
+    if (isDeleting) {
+      return
+    }
+    setCourseToDelete(null)
+    setDeleteError('')
+    setCanRetryDelete(false)
   }
 
   async function persistCourse({ isRetry }) {
@@ -108,14 +153,33 @@ function DashboardPage({ session }) {
     }
   }
 
-  function closeCreateModal() {
-    if (isSaving) {
-      return
+  async function persistUpdatedCourse() {
+    const name = pendingCourseNameRef.current
+    const courseId = editingCourse?.id
+
+    if (!courseId) {
+      setFormError('Nepavyko atnaujinti dalyko. Bandykite dar kartą.')
+      setCanRetryRequest(true)
+      return false
     }
-    setIsModalOpen(false)
-    setCourseName('')
-    setFormError('')
-    setCanRetryRequest(false)
+
+    try {
+      const { data, error } = await updateUserCourse(user.id, courseId, name)
+
+      if (error || !data) {
+        setFormError('Nepavyko atnaujinti dalyko. Bandykite dar kartą.')
+        setCanRetryRequest(true)
+        return false
+      }
+
+      setCourses((current) => current.map((course) => (course.id === data.id ? data : course)))
+      setLoadState('success')
+      return true
+    } catch {
+      setFormError('Nepavyko atnaujinti dalyko. Bandykite dar kartą.')
+      setCanRetryRequest(true)
+      return false
+    }
   }
 
   async function handleCreateCourse(event) {
@@ -139,7 +203,7 @@ function DashboardPage({ session }) {
 
     if (saved) {
       setSuccessMessage('Dalykas sėkmingai sukurtas')
-      setIsModalOpen(false)
+      setFormMode(null)
       setCourseName('')
     }
 
@@ -158,11 +222,114 @@ function DashboardPage({ session }) {
 
     if (saved) {
       setSuccessMessage('Dalykas sėkmingai sukurtas')
-      setIsModalOpen(false)
+      setFormMode(null)
       setCourseName('')
     }
 
     setIsSaving(false)
+  }
+
+  async function handleUpdateCourse(event) {
+    event.preventDefault()
+    const name = courseName.trim()
+
+    if (!name) {
+      setFormError('Įveskite dalyko pavadinimą.')
+      setCanRetryRequest(false)
+      return
+    }
+
+    pendingCourseNameRef.current = name
+    setIsSaving(true)
+    setFormError('')
+    setCanRetryRequest(false)
+    setSuccessMessage('')
+
+    const saved = await persistUpdatedCourse()
+
+    if (saved) {
+      setSuccessMessage('Dalykas sėkmingai atnaujintas')
+      setFormMode(null)
+      setEditingCourse(null)
+    }
+
+    setIsSaving(false)
+  }
+
+  async function retryUpdateCourse() {
+    if (!pendingCourseNameRef.current || !editingCourse || isSaving) {
+      return
+    }
+
+    setIsSaving(true)
+    setFormError('')
+
+    const saved = await persistUpdatedCourse()
+
+    if (saved) {
+      setSuccessMessage('Dalykas sėkmingai atnaujintas')
+      setFormMode(null)
+      setEditingCourse(null)
+    }
+
+    setIsSaving(false)
+  }
+
+  async function persistDeletedCourse() {
+    const course = courseToDelete
+    if (!course) {
+      return false
+    }
+
+    try {
+      const { count, error: countError } = await countTasksForCourse(course.id)
+
+      if (countError) {
+        setDeleteError('Nepavyko patikrinti susijusių užduočių. Bandykite dar kartą.')
+        setCanRetryDelete(true)
+        return false
+      }
+
+      if ((count ?? 0) > 0) {
+        setDeleteError(
+          'Šio dalyko ištrinti negalima, nes jam priskirta užduočių. Pirmiausia ištrinkite arba perkėlkite susijusias užduotis.',
+        )
+        setCanRetryDelete(false)
+        return false
+      }
+
+      const { data, error } = await deleteUserCourse(user.id, course.id)
+
+      if (error || !data) {
+        setDeleteError('Nepavyko ištrinti dalyko. Bandykite dar kartą.')
+        setCanRetryDelete(true)
+        return false
+      }
+
+      setCourses((current) => current.filter((item) => item.id !== course.id))
+      setLoadState('success')
+      return true
+    } catch {
+      setDeleteError('Nepavyko ištrinti dalyko. Bandykite dar kartą.')
+      setCanRetryDelete(true)
+      return false
+    }
+  }
+
+  async function handleDeleteCourse() {
+    setIsDeleting(true)
+    setDeleteError('')
+    setCanRetryDelete(false)
+    setSuccessMessage('')
+
+    const deleted = await persistDeletedCourse()
+
+    if (deleted) {
+      setSuccessMessage('Dalykas sėkmingai ištrintas')
+      setCourseToDelete(null)
+    }
+
+    setIsDeleting(false)
   }
 
   async function handleSignOut() {
@@ -362,6 +529,14 @@ function DashboardPage({ session }) {
                     {index % 4 === 0 ? '</>' : index % 4 === 1 ? 'DB' : index % 4 === 2 ? '▣' : '◈'}
                   </div>
                   <h3>{course.name}</h3>
+                  <div className="dashboard-card-actions">
+                    <button type="button" onClick={() => openEditModal(course)}>
+                      Redaguoti
+                    </button>
+                    <button type="button" onClick={() => openDeleteModal(course)}>
+                      Ištrinti
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -371,16 +546,19 @@ function DashboardPage({ session }) {
         ) : null}
       </div>
 
-      {activeView === 'courses' && isModalOpen ? (
+      {activeView === 'courses' && formMode ? (
         <div className="dashboard-modal-wrap">
           <button
             type="button"
             className="dashboard-backdrop"
             aria-label="Uždaryti langą"
-            onClick={closeCreateModal}
+            onClick={closeFormModal}
           />
-          <form className="dashboard-modal" onSubmit={handleCreateCourse}>
-            <h2>Naujas studijų dalykas</h2>
+          <form
+            className="dashboard-modal"
+            onSubmit={formMode === 'edit' ? handleUpdateCourse : handleCreateCourse}
+          >
+            <h2>{formMode === 'edit' ? 'Redaguoti dalyką' : 'Naujas studijų dalykas'}</h2>
             <label htmlFor="course-name">Dalyko pavadinimas</label>
             <input
               id="course-name"
@@ -403,7 +581,7 @@ function DashboardPage({ session }) {
                   <button
                     type="button"
                     className="dashboard-retry"
-                    onClick={retryCreateCourse}
+                    onClick={formMode === 'edit' ? retryUpdateCourse : retryCreateCourse}
                     disabled={isSaving}
                   >
                     Bandyti dar kartą
@@ -412,14 +590,60 @@ function DashboardPage({ session }) {
               </div>
             ) : null}
             <div className="dashboard-modal-actions">
-              <button type="button" className="dashboard-cancel" onClick={closeCreateModal} disabled={isSaving}>
+              <button type="button" className="dashboard-cancel" onClick={closeFormModal} disabled={isSaving}>
                 Atšaukti
               </button>
               <button type="submit" className="dashboard-add" disabled={isSaving}>
-                {isSaving ? 'Saugoma...' : 'Pridėti dalyką'}
+                {isSaving ? 'Saugoma...' : formMode === 'edit' ? 'Išsaugoti' : 'Pridėti dalyką'}
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {activeView === 'courses' && courseToDelete ? (
+        <div className="dashboard-modal-wrap">
+          <button
+            type="button"
+            className="dashboard-backdrop"
+            aria-label="Uždaryti langą"
+            onClick={closeDeleteModal}
+          />
+          <div className="dashboard-modal">
+            <h2>Ištrinti dalyką?</h2>
+            <p className="dashboard-delete-text">
+              Ar tikrai norite ištrinti dalyką „{courseToDelete.name}“? Jei jam priskirta užduočių, trynimas nebus
+              vykdomas.
+            </p>
+            {deleteError ? (
+              <div className="dashboard-form-error" role="alert">
+                <p>{deleteError}</p>
+                {canRetryDelete ? (
+                  <button
+                    type="button"
+                    className="dashboard-retry"
+                    onClick={handleDeleteCourse}
+                    disabled={isDeleting}
+                  >
+                    Bandyti dar kartą
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="dashboard-modal-actions">
+              <button type="button" className="dashboard-cancel" onClick={closeDeleteModal} disabled={isDeleting}>
+                Atšaukti
+              </button>
+              <button
+                type="button"
+                className="dashboard-add dashboard-add--danger"
+                onClick={handleDeleteCourse}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Trinama...' : 'Ištrinti'}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>
