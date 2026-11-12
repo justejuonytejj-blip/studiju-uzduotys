@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getSignUpErrorMessage, signUpWithEmail } from '../lib/auth.js'
-import './RegisterPage.css'
+import { CapIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon } from './AuthIcons.jsx'
+import './AuthPage.css'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -30,6 +31,8 @@ function RegisterPage({ onGoToLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordRepeat, setPasswordRepeat] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showPasswordRepeat, setShowPasswordRepeat] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -99,57 +102,94 @@ function RegisterPage({ onGoToLogin }) {
   }
 
   return (
-    <main className="register-page">
-      <section className="register-card">
-        <p className="register-kicker">Studijų užduotys</p>
-        <h1>Registracija</h1>
-        <p className="register-lead">
-          Sukurkite paskyrą ir pradėkite valdyti studijų užduotis vienoje vietoje.
+    <main className="auth-page">
+      <section className="auth-card">
+        <div className="auth-icon">
+          <CapIcon />
+        </div>
+        <h1>Studijų užduotys</h1>
+        <p className="auth-kicker">Registracija</p>
+        <p className="auth-lead">
+          Sukurkite paskyrą ir pradėkite valdyti studijų užduotis.
         </p>
 
-        <form className="register-form" onSubmit={handleSubmit} noValidate>
-          <label htmlFor="email">El. paštas</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            disabled={isSubmitting}
-            placeholder="pvz. studentas1@example.com"
-          />
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          <label className="auth-field auth-field--email" htmlFor="email">
+            <span className="auth-field-icon">
+              <MailIcon />
+            </span>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              disabled={isSubmitting}
+              placeholder="El. paštas"
+            />
+          </label>
 
-          <label htmlFor="password">Slaptažodis</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            disabled={isSubmitting}
-          />
+          <label className="auth-field" htmlFor="password">
+            <span className="auth-field-icon">
+              <LockIcon />
+            </span>
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              disabled={isSubmitting}
+              placeholder="Slaptažodis"
+            />
+            <button
+              type="button"
+              className="auth-eye"
+              onClick={() => setShowPassword((value) => !value)}
+              disabled={isSubmitting}
+              aria-label={showPassword ? 'Slėpti slaptažodį' : 'Rodyti slaptažodį'}
+            >
+              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
+          </label>
 
-          <label htmlFor="passwordRepeat">Pakartoti slaptažodį</label>
-          <input
-            id="passwordRepeat"
-            name="passwordRepeat"
-            type="password"
-            autoComplete="new-password"
-            value={passwordRepeat}
-            onChange={(event) => setPasswordRepeat(event.target.value)}
-            disabled={isSubmitting}
-          />
+          <label className="auth-field" htmlFor="passwordRepeat">
+            <span className="auth-field-icon">
+              <LockIcon />
+            </span>
+            <input
+              id="passwordRepeat"
+              name="passwordRepeat"
+              type={showPasswordRepeat ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={passwordRepeat}
+              onChange={(event) => setPasswordRepeat(event.target.value)}
+              disabled={isSubmitting}
+              placeholder="Pakartoti slaptažodį"
+            />
+            <button
+              type="button"
+              className="auth-eye"
+              onClick={() => setShowPasswordRepeat((value) => !value)}
+              disabled={isSubmitting}
+              aria-label={
+                showPasswordRepeat ? 'Slėpti pakartotą slaptažodį' : 'Rodyti pakartotą slaptažodį'
+              }
+            >
+              {showPasswordRepeat ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
+          </label>
 
           {errorMessage ? (
-            <div className="register-message register-message--error" role="alert">
+            <div className="auth-message auth-message--error" role="alert">
               <p>{errorMessage}</p>
               {canRetry ? (
                 <button
                   type="button"
-                  className="register-retry"
+                  className="auth-retry"
                   onClick={submitRegistration}
                   disabled={isSubmitting}
                 >
@@ -160,17 +200,17 @@ function RegisterPage({ onGoToLogin }) {
           ) : null}
 
           {successMessage ? (
-            <p className="register-message register-message--success" role="status">
+            <p className="auth-message auth-message--success" role="status">
               {successMessage}
             </p>
           ) : null}
 
-          <button type="submit" disabled={isSubmitting}>
+          <button className="auth-submit" type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Registruojama...' : 'Registruotis'}
           </button>
         </form>
 
-        <p className="register-switch">
+        <p className="auth-switch">
           Jau turite paskyrą?{' '}
           <a
             href="#prisijungti"

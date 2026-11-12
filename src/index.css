@@ -45,10 +45,11 @@ body {
   margin: 0;
   padding: 24px;
   text-align: center;
+  color: #c7b8e8;
+  background: linear-gradient(180deg, #1a1038 0%, #120826 48%, #0b0618 100%);
 }
 
 .session-check p {
   margin: 0;
   font-size: 1.05rem;
-  color: var(--muted);
 }
