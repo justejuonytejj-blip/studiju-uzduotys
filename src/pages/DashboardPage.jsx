@@ -7,6 +7,7 @@ import {
   fetchUserCourses,
   updateUserCourse,
 } from '../lib/courses.js'
+import { fetchUserTasks } from '../lib/tasks.js'
 import ProgressPanel from './ProgressPanel.jsx'
 import TasksPanel from './TasksPanel.jsx'
 import './DashboardPage.css'
@@ -28,6 +29,7 @@ function DashboardPage({ session }) {
   const initials = getInitials(email)
 
   const [courses, setCourses] = useState([])
+  const [courseTaskStats, setCourseTaskStats] = useState({})
   const [loadState, setLoadState] = useState('loading')
   const [loadError, setLoadError] = useState('')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -48,26 +50,72 @@ function DashboardPage({ session }) {
   const [activeView, setActiveView] = useState('courses')
   const courseSnapshotIdsRef = useRef([])
   const pendingCourseNameRef = useRef('')
+  const skipSilentCourseRefreshRef = useRef(true)
 
-  async function loadCourses() {
-    setLoadState('loading')
-    setLoadError('')
+  function buildCourseTaskStats(taskList) {
+    const stats = {}
 
-    const { data, error } = await fetchUserCourses(user.id)
+    for (const task of taskList) {
+      const courseId = task.course_id
+      if (!stats[courseId]) {
+        stats[courseId] = { total: 0, completed: 0 }
+      }
+      stats[courseId].total += 1
+      if (task.is_completed) {
+        stats[courseId].completed += 1
+      }
+    }
 
-    if (error) {
-      setLoadState('error')
-      setLoadError('Nepavyko įkelti studijų dalykų. Bandykite dar kartą.')
+    return stats
+  }
+
+  function getCourseProgress(courseId) {
+    const stats = courseTaskStats[courseId] || { total: 0, completed: 0 }
+    const percent = stats.total === 0 ? 0 : Math.round((stats.completed / stats.total) * 100)
+    return { ...stats, percent }
+  }
+
+  async function loadCourses({ silent = false } = {}) {
+    if (!silent) {
+      setLoadState('loading')
+      setLoadError('')
+    }
+
+    const [coursesResult, tasksResult] = await Promise.all([
+      fetchUserCourses(user.id),
+      fetchUserTasks(user.id),
+    ])
+
+    if (coursesResult.error || tasksResult.error) {
+      if (!silent) {
+        setLoadState('error')
+        setLoadError('Nepavyko įkelti studijų dalykų. Bandykite dar kartą.')
+      }
       return
     }
 
-    setCourses(data ?? [])
+    setCourses(coursesResult.data ?? [])
+    setCourseTaskStats(buildCourseTaskStats(tasksResult.data ?? []))
     setLoadState('success')
   }
 
   useEffect(() => {
+    skipSilentCourseRefreshRef.current = true
     loadCourses()
   }, [user.id])
+
+  useEffect(() => {
+    if (activeView !== 'courses') {
+      return
+    }
+
+    if (skipSilentCourseRefreshRef.current) {
+      skipSilentCourseRefreshRef.current = false
+      return
+    }
+
+    loadCourses({ silent: true })
+  }, [activeView])
 
   function openCreateModal() {
     setEditingCourse(null)
@@ -537,7 +585,10 @@ function DashboardPage({ session }) {
 
           {loadState === 'success' && courses.length > 0 ? (
             <ul className="dashboard-grid">
-              {courses.map((course, index) => (
+              {courses.map((course, index) => {
+                const progress = getCourseProgress(course.id)
+
+                return (
                 <li
                   key={course.id}
                   className={`dashboard-card dashboard-card--${COURSE_VARIANTS[index % COURSE_VARIANTS.length]}`}
@@ -546,6 +597,24 @@ function DashboardPage({ session }) {
                     {index % 4 === 0 ? '</>' : index % 4 === 1 ? 'DB' : index % 4 === 2 ? '▣' : '◈'}
                   </div>
                   <h3>{course.name}</h3>
+                      <div className="dashboard-card-progress">
+                        <p>
+                          {progress.completed} iš {progress.total} atlikta
+                        </p>
+                        <div
+                          className="dashboard-card-progress-track"
+                          role="progressbar"
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={progress.percent}
+                          aria-label={`${progress.percent} procentų atlikta`}
+                        >
+                          <div
+                            className="dashboard-card-progress-bar"
+                            style={{ width: `${progress.percent}%` }}
+                          />
+                        </div>
+                      </div>
                   <div className="dashboard-card-actions">
                     <button type="button" onClick={() => openEditModal(course)}>
                       Redaguoti
@@ -555,7 +624,8 @@ function DashboardPage({ session }) {
                     </button>
                   </div>
                 </li>
-              ))}
+                )
+              })}
             </ul>
           ) : null}
         </section>
