@@ -390,7 +390,7 @@ function TasksPanel({ userId }) {
 
       setTasks((current) => current.map((item) => (item.id === data.id ? data : item)))
       setSuccessMessage(
-        nextCompleted ? 'Užduotis pažymėta kaip atlikta' : 'Užduotis grąžinta į neatliktas',
+        nextCompleted ? 'Užduotis pažymėta kaip atlikta' : 'Užduotis pažymėta kaip neatlikta',
       )
     } catch {
       setCompletionError('Nepavyko pakeisti užduoties būsenos. Bandykite dar kartą.')
