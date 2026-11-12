@@ -2,12 +2,46 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchUserTasks } from '../lib/tasks.js'
 
 const WEEKDAY_LABELS = ['Sk', 'Pr', 'An', 'Tr', 'Kt', 'Pn', 'Št']
+const CHART_TRACK_HEIGHT = 140
 
 function localDateKey(date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function completedOnLocalDay(task, dayKey) {
+  if (!task.is_completed || !task.completed_at) {
+    return false
+  }
+
+  return localDateKey(new Date(task.completed_at)) === dayKey
+}
+
+function buildScaleTicks(maxCount) {
+  const top = Math.max(0, maxCount)
+
+  if (top === 0) {
+    return [0]
+  }
+
+  if (top <= 8) {
+    return Array.from({ length: top + 1 }, (_, index) => index)
+  }
+
+  const step = Math.ceil(top / 5)
+  const ticks = []
+
+  for (let value = 0; value <= top; value += step) {
+    ticks.push(value)
+  }
+
+  if (ticks[ticks.length - 1] !== top) {
+    ticks.push(top)
+  }
+
+  return ticks
 }
 
 function buildLastSevenDays(tasks) {
@@ -18,17 +52,12 @@ function buildLastSevenDays(tasks) {
     const day = new Date(today)
     day.setDate(today.getDate() - (6 - index))
     const key = localDateKey(day)
-    const count = tasks.filter((task) => {
-      if (!task.is_completed || !task.completed_at) {
-        return false
-      }
-      return localDateKey(new Date(task.completed_at)) === key
-    }).length
+    const count = tasks.filter((task) => completedOnLocalDay(task, key)).length
 
     return {
       key,
       label: WEEKDAY_LABELS[day.getDay()],
-      dateLabel: `${day.getDate()}.${day.getMonth() + 1}`,
+      dateLabel: `${String(day.getDate()).padStart(2, '0')}.${String(day.getMonth() + 1).padStart(2, '0')}`,
       count,
     }
   })
@@ -64,12 +93,14 @@ function ProgressPanel({ userId }) {
   const remaining = total - completed
   const percent = total === 0 ? 0 : Math.round((completed / total) * 100)
   const chartDays = useMemo(() => buildLastSevenDays(tasks), [tasks])
-  const maxCount = Math.max(...chartDays.map((day) => day.count), 1)
+  const maxCount = Math.max(...chartDays.map((day) => day.count), 0)
+  const scaleTicks = buildScaleTicks(maxCount)
+  const scaleLabels = [...scaleTicks].reverse()
 
   return (
     <>
       <section className="dashboard-hero">
-        <h1>Mano pažanga</h1>
+        <h1>Statistika</h1>
         <p>Sekite, kiek užduočių jau atlikta ir kaip sekėsi pastarąsias 7 dienas.</p>
       </section>
 
@@ -120,21 +151,43 @@ function ProgressPanel({ userId }) {
           <section className="progress-chart-wrap" aria-label="Paskutinių 7 dienų grafikas">
             <h2>Atlikta per 7 dienas</h2>
             <div className="progress-chart">
-              {chartDays.map((day) => (
-                <div key={day.key} className="progress-chart-col">
-                  <span className="progress-chart-count">{day.count}</span>
-                  <div className="progress-chart-track">
-                    <div
-                      className="progress-chart-bar"
-                      style={{
-                        height: day.count === 0 ? '0%' : `${(day.count / maxCount) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="progress-chart-label">{day.label}</span>
-                  <span className="progress-chart-date">{day.dateLabel}</span>
+              <div className="progress-chart-yaxis" aria-hidden="true">
+                <div className="progress-chart-yaxis-spacer" />
+                <div
+                  className={`progress-chart-scale${scaleLabels.length === 1 ? ' is-zero' : ''}`}
+                  style={{ height: `${CHART_TRACK_HEIGHT}px` }}
+                >
+                  {scaleLabels.map((tick, index) => (
+                    <span key={`${tick}-${index}`}>{tick}</span>
+                  ))}
                 </div>
-              ))}
+                <div className="progress-chart-yaxis-footer" />
+              </div>
+              <div className="progress-chart-days">
+                {chartDays.map((day) => (
+                  <div key={day.key} className="progress-chart-col">
+                    <span className="progress-chart-count">{day.count}</span>
+                    <div
+                      className="progress-chart-track"
+                      style={{ height: `${CHART_TRACK_HEIGHT}px` }}
+                    >
+                      <div
+                        className="progress-chart-bar"
+                        style={{
+                          height:
+                            maxCount === 0 || day.count === 0
+                              ? '0px'
+                              : `${(day.count / maxCount) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="progress-chart-col-footer">
+                      <span className="progress-chart-label">{day.label}</span>
+                      <span className="progress-chart-date">{day.dateLabel}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
         </>

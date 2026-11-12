@@ -14,6 +14,37 @@ import './DashboardPage.css'
 
 const COURSE_VARIANTS = ['violet', 'blue', 'rose', 'teal']
 
+function getCourseIcon(name) {
+  const normalized = (name || '').toLocaleLowerCase('lt-LT')
+
+  if (normalized.includes('fizik')) {
+    return '⚛️'
+  }
+  if (normalized.includes('chemij')) {
+    return '🧪'
+  }
+  if (normalized.includes('matematik')) {
+    return '📐'
+  }
+  if (normalized.includes('biolog')) {
+    return '🧬'
+  }
+  if (normalized.includes('programav')) {
+    return '💻'
+  }
+
+  return '🎓'
+}
+
+function formatCourseName(name) {
+  const value = name || ''
+  if (!value) {
+    return ''
+  }
+
+  return value.charAt(0).toLocaleUpperCase('lt-LT') + value.slice(1)
+}
+
 function getInitials(email) {
   const localPart = (email || '').split('@')[0]
   const parts = localPart.split(/[._-]/).filter(Boolean)
@@ -489,7 +520,7 @@ function DashboardPage({ session }) {
                 <path d="M5 19V10M12 19V5M19 19v-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               </svg>
             </span>
-            Mano pažanga
+            Statistika
           </button>
         </nav>
       </aside>
@@ -594,9 +625,9 @@ function DashboardPage({ session }) {
                   className={`dashboard-card dashboard-card--${COURSE_VARIANTS[index % COURSE_VARIANTS.length]}`}
                 >
                   <div className="dashboard-card-icon" aria-hidden="true">
-                    {index % 4 === 0 ? '</>' : index % 4 === 1 ? 'DB' : index % 4 === 2 ? '▣' : '◈'}
+                    {getCourseIcon(course.name)}
                   </div>
-                  <h3>{course.name}</h3>
+                  <h3>{formatCourseName(course.name)}</h3>
                       <div className="dashboard-card-progress">
                         <p>
                           {progress.completed} iš {progress.total} atlikta
@@ -616,11 +647,44 @@ function DashboardPage({ session }) {
                         </div>
                       </div>
                   <div className="dashboard-card-actions">
-                    <button type="button" onClick={() => openEditModal(course)}>
-                      Redaguoti
+                    <button
+                      type="button"
+                      className="dashboard-task-icon-btn"
+                      onClick={() => openEditModal(course)}
+                      aria-label="Redaguoti dalyką"
+                      title="Redaguoti dalyką"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none">
+                        <path
+                          d="M4 16.5V20h3.5L19 8.5 15.5 5 4 16.5Z"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M13.7 6.8 17.2 10.3"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinecap="round"
+                        />
+                      </svg>
                     </button>
-                    <button type="button" onClick={() => openDeleteModal(course)}>
-                      Ištrinti
+                    <button
+                      type="button"
+                      className="dashboard-task-icon-btn dashboard-task-icon-btn--danger"
+                      onClick={() => openDeleteModal(course)}
+                      aria-label="Ištrinti dalyką"
+                      title="Ištrinti dalyką"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none">
+                        <path
+                          d="M5 7h14M10 7V5h4v2M8 7v12h8V7"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
                     </button>
                   </div>
                 </li>
