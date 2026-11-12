@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { taskMatchesSearch } from '../lib/taskSearch.js'
 import { fetchUserCourses } from '../lib/courses.js'
 import {
   createUserTask,
@@ -8,6 +9,21 @@ import {
   updateUserTask,
 } from '../lib/tasks.js'
 
+function foundTasksLabel(count) {
+  const mod10 = count % 10
+  const mod100 = count % 100
+
+  if (mod10 === 1 && mod100 !== 11) {
+    return `Rasta ${count} užduotis`
+  }
+
+  if (mod10 >= 2 && mod10 <= 9 && (mod100 < 10 || mod100 >= 20)) {
+    return `Rastos ${count} užduotys`
+  }
+
+  return `Rasta ${count} užduočių`
+}
+
 function priorityLabel(priority) {
   if (priority === 'high') {
     return 'Skubu'
@@ -16,6 +32,80 @@ function priorityLabel(priority) {
     return 'Įprasta'
   }
   return priority
+}
+
+function FilterSelect({ label, value, options, onChange, ariaLabel }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const wrapRef = useRef(null)
+  const selected = options.find((option) => option.value === value) ?? options[0]
+
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (!wrapRef.current?.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
+
+  return (
+    <div className="dashboard-task-filter" ref={wrapRef}>
+      <span>{label}</span>
+      <button
+        type="button"
+        className={`dashboard-filter-select${isOpen ? ' is-open' : ''}`}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={ariaLabel}
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        <span>{selected?.label}</span>
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path
+            d="M5.2 7.5 10 12.3l4.8-4.8"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      {isOpen ? (
+        <ul className="dashboard-filter-menu" role="listbox">
+          {options.map((option) => (
+            <li key={option.value}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={option.value === value}
+                className={option.value === value ? 'is-selected' : undefined}
+                onClick={() => {
+                  onChange(option.value)
+                  setIsOpen(false)
+                }}
+              >
+                {option.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  )
 }
 
 function TasksPanel({ userId }) {
@@ -38,6 +128,10 @@ function TasksPanel({ userId }) {
   const [successMessage, setSuccessMessage] = useState('')
   const [completingTaskId, setCompletingTaskId] = useState(null)
   const [completionError, setCompletionError] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterCourseId, setFilterCourseId] = useState('')
+  const [filterPriority, setFilterPriority] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
   const taskSnapshotIdsRef = useRef([])
   const pendingTaskRef = useRef({ title: '', courseId: '', priority: 'normal' })
   const userCourseIds = courses.map((course) => course.id)
@@ -399,6 +493,28 @@ function TasksPanel({ userId }) {
     }
   }
 
+  function clearTaskFilters() {
+    setSearchQuery('')
+    setFilterCourseId('')
+    setFilterPriority('')
+    setFilterStatus('')
+  }
+
+  const filteredTasks = tasks.filter((task) => {
+    const matchesSearch = taskMatchesSearch(task, searchQuery)
+    const matchesCourse = !filterCourseId || task.course_id === filterCourseId
+    const matchesPriority = !filterPriority || task.priority === filterPriority
+    const matchesStatus =
+      !filterStatus ||
+      (filterStatus === 'completed' && Boolean(task.is_completed)) ||
+      (filterStatus === 'incomplete' && !task.is_completed)
+
+    return matchesSearch && matchesCourse && matchesPriority && matchesStatus
+  })
+
+  const hasActiveFilters = Boolean(
+    searchQuery.trim() || filterCourseId || filterPriority || filterStatus,
+  )
   const canCreateTask = courses.length > 0
 
   return (
@@ -467,44 +583,112 @@ function TasksPanel({ userId }) {
         ) : null}
 
         {loadState === 'success' && tasks.length > 0 ? (
-          <ul className="dashboard-task-list">
-            {tasks.map((task) => (
-              <li
-                key={task.id}
-                className={`dashboard-task-card${task.is_completed ? ' is-completed' : ''}`}
-              >
-                <div>
-                  <h3>{task.title}</h3>
-                  <p>{task.courses?.name || 'Nepriskirtas dalykas'}</p>
-                  {task.is_completed ? (
-                    <p className="dashboard-task-status">Atlikta</p>
-                  ) : null}
-                  <div className="dashboard-task-actions">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleCompletion(task)}
-                      disabled={completingTaskId === task.id}
-                    >
-                      {completingTaskId === task.id
-                        ? 'Saugoma...'
-                        : task.is_completed
-                          ? 'Pažymėti neatlikta'
-                          : 'Pažymėti atlikta'}
-                    </button>
-                    <button type="button" onClick={() => openEditModal(task)}>
-                      Redaguoti
-                    </button>
-                    <button type="button" onClick={() => openDeleteModal(task)}>
-                      Ištrinti
-                    </button>
-                  </div>
-                </div>
-                <span className={`dashboard-priority dashboard-priority--${task.priority}`}>
-                  {priorityLabel(task.priority)}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <>
+            <div className="dashboard-task-filters">
+              <label className="dashboard-task-filter">
+                <span>Paieška</span>
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Ieškoti užduoties..."
+                  aria-label="Ieškoti užduoties"
+                />
+              </label>
+
+              <FilterSelect
+                label="Studijų dalykas"
+                value={filterCourseId}
+                ariaLabel="Filtruoti pagal studijų dalyką"
+                onChange={setFilterCourseId}
+                options={[
+                  { value: '', label: 'Visi dalykai' },
+                  ...courses.map((course) => ({ value: course.id, label: course.name })),
+                ]}
+              />
+
+              <FilterSelect
+                label="Prioritetas"
+                value={filterPriority}
+                ariaLabel="Filtruoti pagal prioritetą"
+                onChange={setFilterPriority}
+                options={[
+                  { value: '', label: 'Visi prioritetai' },
+                  { value: 'normal', label: 'Įprasta' },
+                  { value: 'high', label: 'Skubu' },
+                ]}
+              />
+
+              <FilterSelect
+                label="Būsena"
+                value={filterStatus}
+                ariaLabel="Filtruoti pagal būseną"
+                onChange={setFilterStatus}
+                options={[
+                  { value: '', label: 'Visos užduotys' },
+                  { value: 'completed', label: 'Atliktos' },
+                  { value: 'incomplete', label: 'Neatliktos' },
+                ]}
+              />
+
+              {hasActiveFilters && filteredTasks.length > 0 ? (
+                <button type="button" className="dashboard-cancel" onClick={clearTaskFilters}>
+                  Išvalyti filtrus
+                </button>
+              ) : null}
+            </div>
+
+            {filteredTasks.length === 0 ? (
+              <div className="dashboard-empty dashboard-empty--filters">
+                <h3>Pagal pasirinktus filtrus užduočių nerasta</h3>
+                <button type="button" className="dashboard-add" onClick={clearTaskFilters}>
+                  Išvalyti filtrus
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="dashboard-task-count">{foundTasksLabel(filteredTasks.length)}</p>
+                <ul className="dashboard-task-list">
+                {filteredTasks.map((task) => (
+                  <li
+                    key={task.id}
+                    className={`dashboard-task-card${task.is_completed ? ' is-completed' : ''}`}
+                  >
+                    <div>
+                      <h3>{task.title}</h3>
+                      <p>{task.courses?.name || 'Nepriskirtas dalykas'}</p>
+                      {task.is_completed ? (
+                        <p className="dashboard-task-status">Atlikta</p>
+                      ) : null}
+                      <div className="dashboard-task-actions">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCompletion(task)}
+                          disabled={completingTaskId === task.id}
+                        >
+                          {completingTaskId === task.id
+                            ? 'Saugoma...'
+                            : task.is_completed
+                              ? 'Pažymėti neatlikta'
+                              : 'Pažymėti atlikta'}
+                        </button>
+                        <button type="button" onClick={() => openEditModal(task)}>
+                          Redaguoti
+                        </button>
+                        <button type="button" onClick={() => openDeleteModal(task)}>
+                          Ištrinti
+                        </button>
+                      </div>
+                    </div>
+                    <span className={`dashboard-priority dashboard-priority--${task.priority}`}>
+                      {priorityLabel(task.priority)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              </>
+            )}
+          </>
         ) : null}
       </section>
 
