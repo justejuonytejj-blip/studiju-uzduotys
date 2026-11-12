@@ -897,27 +897,64 @@
 
 .progress-chart {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 10px;
-  align-items: end;
-  min-height: 220px;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto;
+  grid-auto-flow: row;
+  align-items: stretch;
+  gap: 8px 12px;
   padding: 18px 16px 12px;
   border-radius: 20px;
   border: 1px solid var(--dash-line);
   background: linear-gradient(160deg, rgba(42, 20, 88, 0.55), rgba(15, 10, 36, 0.88));
 }
 
+.progress-chart-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto;
+  grid-auto-flow: column;
+  gap: 8px 10px;
+  min-width: 0;
+}
+
+.progress-chart-yaxis,
 .progress-chart-col {
+  display: grid;
+  grid-template-rows: 22px 140px auto;
+  justify-items: center;
+  min-width: 0;
+}
+
+.progress-chart-yaxis {
+  justify-items: end;
+}
+
+.progress-chart-yaxis-spacer,
+.progress-chart-yaxis-footer {
+  width: 100%;
+}
+
+.progress-chart-scale {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  min-height: 180px;
+  justify-content: space-between;
+  align-items: flex-end;
+  color: var(--dash-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.progress-chart-scale.is-zero {
+  justify-content: flex-end;
 }
 
 .progress-chart-count {
-  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
   font-size: 0.85rem;
   color: #e9dfff;
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-chart-track {
@@ -925,7 +962,6 @@
   align-items: flex-end;
   width: 100%;
   max-width: 36px;
-  height: 120px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
   overflow: hidden;
@@ -933,13 +969,28 @@
 
 .progress-chart-bar {
   width: 100%;
-  min-height: 6px;
+  min-height: 0;
   border-radius: 999px;
   background: linear-gradient(180deg, #c084fc, #7c3aed);
 }
 
-.progress-chart-label {
+.progress-chart-col-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   margin-top: 8px;
+  min-width: 0;
+}
+
+.progress-chart-label,
+.progress-chart-date {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-chart-label {
   font-weight: 650;
   font-size: 0.85rem;
 }
@@ -1010,6 +1061,23 @@
 
   .progress-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .progress-chart {
+    gap: 6px 8px;
+    padding: 14px 10px 10px;
+  }
+
+  .progress-chart-days {
+    gap: 6px;
+  }
+
+  .progress-chart-label {
+    font-size: 0.78rem;
+  }
+
+  .progress-chart-date {
+    font-size: 0.68rem;
   }
 
   .dashboard-task-card {

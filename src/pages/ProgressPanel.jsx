@@ -163,29 +163,31 @@ function ProgressPanel({ userId }) {
                 </div>
                 <div className="progress-chart-yaxis-footer" />
               </div>
-              {chartDays.map((day) => (
-                <div key={day.key} className="progress-chart-col">
-                  <span className="progress-chart-count">{day.count}</span>
-                  <div
-                    className="progress-chart-track"
-                    style={{ height: `${CHART_TRACK_HEIGHT}px` }}
-                  >
+              <div className="progress-chart-days">
+                {chartDays.map((day) => (
+                  <div key={day.key} className="progress-chart-col">
+                    <span className="progress-chart-count">{day.count}</span>
                     <div
-                      className="progress-chart-bar"
-                      style={{
-                        height:
-                          maxCount === 0 || day.count === 0
-                            ? '0px'
-                            : `${(day.count / maxCount) * 100}%`,
-                      }}
-                    />
+                      className="progress-chart-track"
+                      style={{ height: `${CHART_TRACK_HEIGHT}px` }}
+                    >
+                      <div
+                        className="progress-chart-bar"
+                        style={{
+                          height:
+                            maxCount === 0 || day.count === 0
+                              ? '0px'
+                              : `${(day.count / maxCount) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="progress-chart-col-footer">
+                      <span className="progress-chart-label">{day.label}</span>
+                      <span className="progress-chart-date">{day.dateLabel}</span>
+                    </div>
                   </div>
-                  <div className="progress-chart-col-footer">
-                    <span className="progress-chart-label">{day.label}</span>
-                    <span className="progress-chart-date">{day.dateLabel}</span>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </section>
         </>
