@@ -709,6 +709,58 @@
   font-weight: 650;
 }
 
+.dashboard-task-due {
+  margin-top: 8px !important;
+  color: #ddd6fe !important;
+}
+
+.dashboard-task-warning {
+  margin-top: 6px !important;
+  font-weight: 650;
+}
+
+.dashboard-task-warning--overdue {
+  color: #fecaca !important;
+}
+
+.dashboard-task-warning--upcoming {
+  color: #fde68a !important;
+}
+
+.dashboard-due-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.dashboard-due-field input[type='date'] {
+  flex: 1 1 180px;
+  margin-bottom: 0;
+  color-scheme: dark;
+}
+
+.dashboard-due-clear {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--dash-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e9dfff;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.dashboard-due-clear:hover:not(:disabled) {
+  border-color: rgba(192, 132, 252, 0.55);
+}
+
+.dashboard-due-clear:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .dashboard-task-actions {
   display: flex;
   flex-wrap: wrap;

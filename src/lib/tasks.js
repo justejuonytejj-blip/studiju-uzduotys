@@ -1,25 +1,26 @@
 import { supabase } from './supabase.js'
 
 const TASK_COLUMNS =
-  'id, title, priority, course_id, created_at, is_completed, completed_at, courses(name)'
+  'id, title, priority, course_id, created_at, is_completed, completed_at, due_date, courses(name)'
 
 export async function fetchUserTasks(userId) {
   return supabase
     .from('tasks')
     .select(
-      'id, title, priority, course_id, created_at, is_completed, completed_at, courses!inner(name, user_id)',
+      'id, title, priority, course_id, created_at, is_completed, completed_at, due_date, courses!inner(name, user_id)',
     )
     .eq('courses.user_id', userId)
     .order('created_at', { ascending: false })
 }
 
-export async function createUserTask({ title, courseId, priority }) {
+export async function createUserTask({ title, courseId, priority, dueDate = null }) {
   return supabase
     .from('tasks')
     .insert({
       title,
       course_id: courseId,
       priority,
+      due_date: dueDate,
     })
     .select(TASK_COLUMNS)
     .single()
@@ -34,6 +35,7 @@ export async function updateUserTask({
   title,
   courseId,
   priority,
+  dueDate = null,
   currentCourseId,
   userCourseIds,
 }) {
@@ -51,6 +53,7 @@ export async function updateUserTask({
       title,
       course_id: courseId,
       priority,
+      due_date: dueDate,
     })
     .eq('id', taskId)
     .in('course_id', userCourseIds)
