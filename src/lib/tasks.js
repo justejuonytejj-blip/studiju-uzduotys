@@ -1,11 +1,14 @@
 import { supabase } from './supabase.js'
 
-const TASK_COLUMNS = 'id, title, priority, course_id, created_at, courses(name)'
+const TASK_COLUMNS =
+  'id, title, priority, course_id, created_at, is_completed, completed_at, courses(name)'
 
 export async function fetchUserTasks(userId) {
   return supabase
     .from('tasks')
-    .select('id, title, priority, course_id, created_at, courses!inner(name, user_id)')
+    .select(
+      'id, title, priority, course_id, created_at, is_completed, completed_at, courses!inner(name, user_id)',
+    )
     .eq('courses.user_id', userId)
     .order('created_at', { ascending: false })
 }
@@ -48,6 +51,28 @@ export async function updateUserTask({
       title,
       course_id: courseId,
       priority,
+    })
+    .eq('id', taskId)
+    .in('course_id', userCourseIds)
+    .select(TASK_COLUMNS)
+    .single()
+}
+
+export async function setTaskCompletion({
+  taskId,
+  currentCourseId,
+  userCourseIds,
+  isCompleted,
+}) {
+  if (!belongsToUserCourses(currentCourseId, userCourseIds)) {
+    return { data: null, error: { message: 'Užduotis nepriklauso šiam vartotojui.' } }
+  }
+
+  return supabase
+    .from('tasks')
+    .update({
+      is_completed: isCompleted,
+      completed_at: isCompleted ? new Date().toISOString() : null,
     })
     .eq('id', taskId)
     .in('course_id', userCourseIds)
