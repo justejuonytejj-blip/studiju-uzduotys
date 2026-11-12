@@ -675,48 +675,91 @@ function TasksPanel({ userId }) {
                     key={task.id}
                     className={`dashboard-task-card${task.is_completed ? ' is-completed' : ''}`}
                   >
-                    <div>
+                    <label className="dashboard-task-check">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(task.is_completed)}
+                        disabled={completingTaskId === task.id}
+                        onChange={() => handleToggleCompletion(task)}
+                        aria-label={
+                          task.is_completed ? 'Pažymėti kaip neatliktą' : 'Pažymėti kaip atliktą'
+                        }
+                      />
+                    </label>
+                    <div className="dashboard-task-main">
                       <h3>{task.title}</h3>
-                      <p>{task.courses?.name || 'Nepriskirtas dalykas'}</p>
-                      {formattedDueDate ? (
-                        <p className="dashboard-task-due">Atlikti iki {formattedDueDate}</p>
-                      ) : null}
-                      {dueWarning === 'overdue' ? (
-                        <p className="dashboard-task-warning dashboard-task-warning--overdue">
-                          Pavėluota
-                        </p>
-                      ) : null}
-                      {dueWarning === 'upcoming' ? (
-                        <p className="dashboard-task-warning dashboard-task-warning--upcoming">
-                          Artėja terminas
-                        </p>
-                      ) : null}
-                      {task.is_completed ? (
-                        <p className="dashboard-task-status">Atlikta</p>
-                      ) : null}
-                      <div className="dashboard-task-actions">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleCompletion(task)}
-                          disabled={completingTaskId === task.id}
-                        >
-                          {completingTaskId === task.id
-                            ? 'Saugoma...'
-                            : task.is_completed
-                              ? 'Pažymėti neatlikta'
-                              : 'Pažymėti atlikta'}
-                        </button>
-                        <button type="button" onClick={() => openEditModal(task)}>
-                          Redaguoti
-                        </button>
-                        <button type="button" onClick={() => openDeleteModal(task)}>
-                          Ištrinti
-                        </button>
+                      <p className="dashboard-task-course">
+                        {task.courses?.name || 'Nepriskirtas dalykas'}
+                      </p>
+                      <div className="dashboard-task-meta">
+                        {formattedDueDate ? (
+                          <span className="dashboard-task-due">
+                            <span aria-hidden="true">📅</span>
+                            {formattedDueDate}
+                          </span>
+                        ) : null}
+                        <span className={`dashboard-priority dashboard-priority--${task.priority}`}>
+                          {task.priority === 'high' ? <span aria-hidden="true">🔥</span> : null}
+                          {priorityLabel(task.priority)}
+                        </span>
+                        {dueWarning === 'upcoming' ? (
+                          <span className="dashboard-task-chip dashboard-task-chip--upcoming">
+                            Artėja terminas
+                          </span>
+                        ) : null}
+                        {dueWarning === 'overdue' ? (
+                          <span className="dashboard-task-chip dashboard-task-chip--overdue">
+                            Pavėluota
+                          </span>
+                        ) : null}
+                        {task.is_completed ? (
+                          <span className="dashboard-task-chip dashboard-task-chip--done">
+                            Atlikta
+                          </span>
+                        ) : null}
                       </div>
                     </div>
-                    <span className={`dashboard-priority dashboard-priority--${task.priority}`}>
-                      {priorityLabel(task.priority)}
-                    </span>
+                    <div className="dashboard-task-actions">
+                      <button
+                        type="button"
+                        className="dashboard-task-icon-btn"
+                        onClick={() => openEditModal(task)}
+                        aria-label="Redaguoti užduotį"
+                        title="Redaguoti"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none">
+                          <path
+                            d="M4 16.5V20h3.5L19 8.5 15.5 5 4 16.5Z"
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M13.7 6.8 17.2 10.3"
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        className="dashboard-task-icon-btn dashboard-task-icon-btn--danger"
+                        onClick={() => openDeleteModal(task)}
+                        aria-label="Ištrinti užduotį"
+                        title="Ištrinti"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none">
+                          <path
+                            d="M5 7h14M10 7V5h4v2M8 7v12h8V7"
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
                   </li>
                   )
                 })}
