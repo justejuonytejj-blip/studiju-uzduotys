@@ -1,4 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  formatDueDateLt,
+  getDueDateWarning,
+  toDateInputValue,
+  toDueDatePayload,
+} from '../lib/dueDate.js'
 import { taskMatchesSearch } from '../lib/taskSearch.js'
 import { fetchUserCourses } from '../lib/courses.js'
 import {
@@ -117,6 +123,7 @@ function TasksPanel({ userId }) {
   const [title, setTitle] = useState('')
   const [courseId, setCourseId] = useState('')
   const [priority, setPriority] = useState('normal')
+  const [dueDate, setDueDate] = useState('')
   const [editingTask, setEditingTask] = useState(null)
   const [taskToDelete, setTaskToDelete] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -133,7 +140,7 @@ function TasksPanel({ userId }) {
   const [filterPriority, setFilterPriority] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const taskSnapshotIdsRef = useRef([])
-  const pendingTaskRef = useRef({ title: '', courseId: '', priority: 'normal' })
+  const pendingTaskRef = useRef({ title: '', courseId: '', priority: 'normal', dueDate: null })
   const userCourseIds = courses.map((course) => course.id)
 
   async function loadTasks() {
@@ -175,6 +182,7 @@ function TasksPanel({ userId }) {
     setEditingTask(null)
     setTitle('')
     setPriority('normal')
+    setDueDate('')
     setFormError('')
     setCanRetryRequest(false)
     setCourseId((current) => current || courses[0]?.id || '')
@@ -186,6 +194,7 @@ function TasksPanel({ userId }) {
     setTitle(task.title)
     setCourseId(task.course_id)
     setPriority(task.priority === 'high' ? 'high' : 'normal')
+    setDueDate(toDateInputValue(task.due_date))
     setFormError('')
     setCanRetryRequest(false)
     setFormMode('edit')
@@ -288,6 +297,7 @@ function TasksPanel({ userId }) {
       title: trimmedTitle,
       courseId,
       priority,
+      dueDate: toDueDatePayload(dueDate),
     }
     taskSnapshotIdsRef.current = tasks.map((task) => task.id)
     setIsSaving(true)
@@ -301,6 +311,7 @@ function TasksPanel({ userId }) {
       setSuccessMessage('Užduotis sėkmingai sukurta')
       setFormMode(null)
       setTitle('')
+      setDueDate('')
     }
 
     setIsSaving(false)
@@ -320,6 +331,7 @@ function TasksPanel({ userId }) {
       setSuccessMessage('Užduotis sėkmingai sukurta')
       setFormMode(null)
       setTitle('')
+      setDueDate('')
     }
 
     setIsSaving(false)
@@ -334,6 +346,7 @@ function TasksPanel({ userId }) {
         title: pending.title,
         courseId: pending.courseId,
         priority: pending.priority,
+        dueDate: pending.dueDate,
         currentCourseId: pending.currentCourseId,
         userCourseIds,
       })
@@ -381,6 +394,7 @@ function TasksPanel({ userId }) {
       title: trimmedTitle,
       courseId,
       priority,
+      dueDate: toDueDatePayload(dueDate),
       currentCourseId: editingTask.course_id,
     }
     setIsSaving(true)
@@ -649,7 +663,14 @@ function TasksPanel({ userId }) {
               <>
                 <p className="dashboard-task-count">{foundTasksLabel(filteredTasks.length)}</p>
                 <ul className="dashboard-task-list">
-                {filteredTasks.map((task) => (
+                {filteredTasks.map((task) => {
+                  const formattedDueDate = formatDueDateLt(task.due_date)
+                  const dueWarning = getDueDateWarning({
+                    dueDate: task.due_date,
+                    isCompleted: task.is_completed,
+                  })
+
+                  return (
                   <li
                     key={task.id}
                     className={`dashboard-task-card${task.is_completed ? ' is-completed' : ''}`}
@@ -657,6 +678,19 @@ function TasksPanel({ userId }) {
                     <div>
                       <h3>{task.title}</h3>
                       <p>{task.courses?.name || 'Nepriskirtas dalykas'}</p>
+                      {formattedDueDate ? (
+                        <p className="dashboard-task-due">Atlikti iki {formattedDueDate}</p>
+                      ) : null}
+                      {dueWarning === 'overdue' ? (
+                        <p className="dashboard-task-warning dashboard-task-warning--overdue">
+                          Pavėluota
+                        </p>
+                      ) : null}
+                      {dueWarning === 'upcoming' ? (
+                        <p className="dashboard-task-warning dashboard-task-warning--upcoming">
+                          Artėja terminas
+                        </p>
+                      ) : null}
                       {task.is_completed ? (
                         <p className="dashboard-task-status">Atlikta</p>
                       ) : null}
@@ -684,7 +718,8 @@ function TasksPanel({ userId }) {
                       {priorityLabel(task.priority)}
                     </span>
                   </li>
-                ))}
+                  )
+                })}
               </ul>
               </>
             )}
@@ -748,6 +783,28 @@ function TasksPanel({ userId }) {
               <option value="normal">Įprasta</option>
               <option value="high">Skubu</option>
             </select>
+
+            <label htmlFor="task-due-date">Atlikti iki</label>
+            <div className="dashboard-due-field">
+              <input
+                id="task-due-date"
+                name="dueDate"
+                type="date"
+                value={dueDate}
+                onChange={(event) => setDueDate(event.target.value)}
+                disabled={isSaving}
+              />
+              {dueDate ? (
+                <button
+                  type="button"
+                  className="dashboard-due-clear"
+                  onClick={() => setDueDate('')}
+                  disabled={isSaving}
+                >
+                  Pašalinti terminą
+                </button>
+              ) : null}
+            </div>
 
             {formError ? (
               <div className="dashboard-form-error" role="alert">
