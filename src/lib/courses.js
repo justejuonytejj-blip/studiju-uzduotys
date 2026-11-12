@@ -20,3 +20,30 @@ export async function createUserCourse(userId, name) {
     .select(COURSE_COLUMNS)
     .single()
 }
+
+export async function updateUserCourse(userId, courseId, name) {
+  return supabase
+    .from('courses')
+    .update({ name })
+    .eq('id', courseId)
+    .eq('user_id', userId)
+    .select(COURSE_COLUMNS)
+    .single()
+}
+
+export async function countTasksForCourse(courseId) {
+  return supabase
+    .from('tasks')
+    .select('id', { count: 'exact', head: true })
+    .eq('course_id', courseId)
+}
+
+export async function deleteUserCourse(userId, courseId) {
+  return supabase
+    .from('courses')
+    .delete()
+    .eq('id', courseId)
+    .eq('user_id', userId)
+    .select('id')
+    .single()
+}
