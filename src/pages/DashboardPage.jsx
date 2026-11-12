@@ -7,6 +7,7 @@ import {
   fetchUserCourses,
   updateUserCourse,
 } from '../lib/courses.js'
+import ProgressPanel from './ProgressPanel.jsx'
 import TasksPanel from './TasksPanel.jsx'
 import './DashboardPage.css'
 
@@ -427,6 +428,21 @@ function DashboardPage({ session }) {
             </span>
             Užduotys
           </button>
+          <button
+            type="button"
+            className={`dashboard-nav-item${activeView === 'progress' ? ' is-active' : ''}`}
+            onClick={() => {
+              setActiveView('progress')
+              setIsMenuOpen(false)
+            }}
+          >
+            <span className="dashboard-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M5 19V10M12 19V5M19 19v-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </span>
+            Mano pažanga
+          </button>
         </nav>
       </aside>
 
@@ -471,6 +487,7 @@ function DashboardPage({ session }) {
         ) : null}
 
         {activeView === 'tasks' ? <TasksPanel userId={user.id} /> : null}
+        {activeView === 'progress' ? <ProgressPanel userId={user.id} /> : null}
 
         {activeView === 'courses' ? (
           <>

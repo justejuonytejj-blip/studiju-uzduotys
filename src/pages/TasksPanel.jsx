@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { fetchUserCourses } from '../lib/courses.js'
-import { createUserTask, deleteUserTask, fetchUserTasks, updateUserTask } from '../lib/tasks.js'
+import {
+  createUserTask,
+  deleteUserTask,
+  fetchUserTasks,
+  setTaskCompletion,
+  updateUserTask,
+} from '../lib/tasks.js'
 
 function priorityLabel(priority) {
   if (priority === 'high') {
@@ -30,6 +36,8 @@ function TasksPanel({ userId }) {
   const [canRetryRequest, setCanRetryRequest] = useState(false)
   const [canRetryDelete, setCanRetryDelete] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  const [completingTaskId, setCompletingTaskId] = useState(null)
+  const [completionError, setCompletionError] = useState('')
   const taskSnapshotIdsRef = useRef([])
   const pendingTaskRef = useRef({ title: '', courseId: '', priority: 'normal' })
   const userCourseIds = courses.map((course) => course.id)
@@ -361,6 +369,36 @@ function TasksPanel({ userId }) {
     setIsDeleting(false)
   }
 
+  async function handleToggleCompletion(task) {
+    const nextCompleted = !task.is_completed
+    setCompletingTaskId(task.id)
+    setCompletionError('')
+    setSuccessMessage('')
+
+    try {
+      const { data, error } = await setTaskCompletion({
+        taskId: task.id,
+        currentCourseId: task.course_id,
+        userCourseIds,
+        isCompleted: nextCompleted,
+      })
+
+      if (error || !data) {
+        setCompletionError('Nepavyko pakeisti užduoties būsenos. Bandykite dar kartą.')
+        return
+      }
+
+      setTasks((current) => current.map((item) => (item.id === data.id ? data : item)))
+      setSuccessMessage(
+        nextCompleted ? 'Užduotis pažymėta kaip atlikta' : 'Užduotis grąžinta į neatliktas',
+      )
+    } catch {
+      setCompletionError('Nepavyko pakeisti užduoties būsenos. Bandykite dar kartą.')
+    } finally {
+      setCompletingTaskId(null)
+    }
+  }
+
   const canCreateTask = courses.length > 0
 
   return (
@@ -374,6 +412,12 @@ function TasksPanel({ userId }) {
         <p className="dashboard-banner dashboard-banner--success" role="status">
           {successMessage}
         </p>
+      ) : null}
+
+      {completionError ? (
+        <div className="dashboard-banner dashboard-banner--error" role="alert">
+          <p>{completionError}</p>
+        </div>
       ) : null}
 
       <section className="dashboard-section" aria-labelledby="tasks-heading">
@@ -425,11 +469,28 @@ function TasksPanel({ userId }) {
         {loadState === 'success' && tasks.length > 0 ? (
           <ul className="dashboard-task-list">
             {tasks.map((task) => (
-              <li key={task.id} className="dashboard-task-card">
+              <li
+                key={task.id}
+                className={`dashboard-task-card${task.is_completed ? ' is-completed' : ''}`}
+              >
                 <div>
                   <h3>{task.title}</h3>
                   <p>{task.courses?.name || 'Nepriskirtas dalykas'}</p>
+                  {task.is_completed ? (
+                    <p className="dashboard-task-status">Atlikta</p>
+                  ) : null}
                   <div className="dashboard-task-actions">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleCompletion(task)}
+                      disabled={completingTaskId === task.id}
+                    >
+                      {completingTaskId === task.id
+                        ? 'Saugoma...'
+                        : task.is_completed
+                          ? 'Pažymėti neatlikta'
+                          : 'Pažymėti atlikta'}
+                    </button>
                     <button type="button" onClick={() => openEditModal(task)}>
                       Redaguoti
                     </button>

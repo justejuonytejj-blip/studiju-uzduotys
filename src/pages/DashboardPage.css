@@ -535,6 +535,16 @@
   font-size: 0.92rem;
 }
 
+.dashboard-task-card.is-completed {
+  opacity: 0.88;
+}
+
+.dashboard-task-status {
+  margin-top: 8px !important;
+  color: #bbf7d0 !important;
+  font-weight: 650;
+}
+
 .dashboard-task-actions {
   display: flex;
   flex-wrap: wrap;
@@ -598,6 +608,89 @@
   border: 1px solid var(--dash-line);
 }
 
+.progress-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.progress-stat {
+  padding: 18px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--dash-line);
+  background: linear-gradient(160deg, rgba(42, 20, 88, 0.7), rgba(15, 10, 36, 0.9));
+}
+
+.progress-stat p {
+  margin: 0 0 8px;
+  color: var(--dash-muted);
+  font-size: 0.9rem;
+}
+
+.progress-stat strong {
+  font-size: 1.7rem;
+}
+
+.progress-chart-wrap h2 {
+  margin: 0 0 16px;
+  font-size: 1.25rem;
+}
+
+.progress-chart {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+  min-height: 220px;
+  padding: 18px 16px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--dash-line);
+  background: linear-gradient(160deg, rgba(42, 20, 88, 0.55), rgba(15, 10, 36, 0.88));
+}
+
+.progress-chart-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 180px;
+}
+
+.progress-chart-count {
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  color: #e9dfff;
+}
+
+.progress-chart-track {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 36px;
+  height: 120px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.progress-chart-bar {
+  width: 100%;
+  min-height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #c084fc, #7c3aed);
+}
+
+.progress-chart-label {
+  margin-top: 8px;
+  font-weight: 650;
+  font-size: 0.85rem;
+}
+
+.progress-chart-date {
+  color: var(--dash-muted);
+  font-size: 0.75rem;
+}
+
 @media (max-width: 900px) {
   .dashboard {
     grid-template-columns: 1fr;
@@ -655,5 +748,9 @@
   .dashboard-section-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .progress-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
