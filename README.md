@@ -53,7 +53,7 @@ Kiekvienas vartotojas mato tik savo duomenis.
 Programėlei reikalingi:
 
 - `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
 
 Tikrosios reikšmės neskelbiamos GitHub saugykloje.
 
